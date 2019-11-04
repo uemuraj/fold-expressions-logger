@@ -181,4 +181,24 @@ namespace logger
 	}
 }
 
+#else
+
+#include <iostream>
+
+namespace logger
+{
+	inline void Initialize(int level)
+	{
+		switch (level)
+		{
+		case 3:
+			g_Level3<char> = [](std::basic_stringstream<char> & msg) { std::cout << msg.str() << std::endl; };
+		case 2:
+			g_Level2<char> = [](std::basic_stringstream<char> & msg) { std::cout << msg.str() << std::endl; };
+		case 1:
+			g_Level1<char> = [](std::basic_stringstream<char> & msg) { std::cout << msg.str() << std::endl; };
+		}
+	}
+}
+
 #endif
