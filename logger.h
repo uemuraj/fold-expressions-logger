@@ -10,13 +10,13 @@
 #define LOGGER_MACRO_HEADER(file, line)	file "(" LOGGER_MACRO_NUMBER2TEXT(line) "):"
 
 #if defined(_UNICODE)
-#define FAIL(...)	if (logger::g_Level1<wchar_t>) { logger::Output(logger::g_Level1<wchar_t>, LOGGER_MACRO_HEADER(__FILE__, __LINE__), __func__, __VA_ARGS__); }
-#define WARN(...)	if (logger::g_Level2<wchar_t>) { logger::Output(logger::g_Level2<wchar_t>, LOGGER_MACRO_HEADER(__FILE__, __LINE__), __func__, __VA_ARGS__); }
-#define INFO(...)	if (logger::g_Level3<wchar_t>) { logger::Output(logger::g_Level3<wchar_t>, LOGGER_MACRO_HEADER(__FILE__, __LINE__), __func__, __VA_ARGS__); }
+#define FAIL(...)	if (logger::g_level1<wchar_t>) { logger::output(logger::g_level1<wchar_t>, LOGGER_MACRO_HEADER(__FILE__, __LINE__), __func__, __VA_ARGS__); }
+#define WARN(...)	if (logger::g_level2<wchar_t>) { logger::output(logger::g_level2<wchar_t>, LOGGER_MACRO_HEADER(__FILE__, __LINE__), __func__, __VA_ARGS__); }
+#define INFO(...)	if (logger::g_level3<wchar_t>) { logger::output(logger::g_level3<wchar_t>, LOGGER_MACRO_HEADER(__FILE__, __LINE__), __func__, __VA_ARGS__); }
 #else
-#define FAIL(...)	if (logger::g_Level1<char>) { logger::Output(logger::g_Level1<char>, LOGGER_MACRO_HEADER(__FILE__, __LINE__), __func__, __VA_ARGS__); }
-#define WARN(...)	if (logger::g_Level2<char>) { logger::Output(logger::g_Level2<char>, LOGGER_MACRO_HEADER(__FILE__, __LINE__), __func__, __VA_ARGS__); }
-#define INFO(...)	if (logger::g_Level3<char>) { logger::Output(logger::g_Level3<char>, LOGGER_MACRO_HEADER(__FILE__, __LINE__), __func__, __VA_ARGS__); }
+#define FAIL(...)	if (logger::g_level1<char>) { logger::output(logger::g_level1<char>, LOGGER_MACRO_HEADER(__FILE__, __LINE__), __func__, __VA_ARGS__); }
+#define WARN(...)	if (logger::g_level2<char>) { logger::output(logger::g_level2<char>, LOGGER_MACRO_HEADER(__FILE__, __LINE__), __func__, __VA_ARGS__); }
+#define INFO(...)	if (logger::g_level3<char>) { logger::output(logger::g_level3<char>, LOGGER_MACRO_HEADER(__FILE__, __LINE__), __func__, __VA_ARGS__); }
 #endif
 
 namespace logger
@@ -27,43 +27,33 @@ namespace logger
 	using Log = void (*)(std::basic_stringstream<char_type> & msg);
 
 	template <typename char_type>
-	inline Log<char_type> g_Level1 = nullptr;
+	inline Log<char_type> g_level1 = nullptr;
 
 	template <typename char_type>
-	inline Log<char_type> g_Level2 = nullptr;
+	inline Log<char_type> g_level2 = nullptr;
 
 	template <typename char_type>
-	inline Log<char_type> g_Level3 = nullptr;
+	inline Log<char_type> g_level3 = nullptr;
 
 	template <typename char_type>
 	struct message
 	{
-		Log<char_type> m_log;
-
-		std::basic_stringstream<char_type> m_buf;
-
-		message(Log<char_type> log, const char * header) : m_log(log)
-		{
-			m_buf << header;
-		}
-
-		~message()
-		{
-			m_log(m_buf);
-		}
+		std::basic_ostream<char_type> & os;
 
 		template <typename param_type>
 		message & operator<<(param_type && param)
 		{
-			m_buf << ' ' << param;
+			os << ' ' << param;
 			return *this;
 		}
 	};
 
 	template <typename char_type, typename ... param_types>
-	void Output(Log<char_type> log, const char * header, param_types && ... params)
+	void output(Log<char_type> log, const char * header, param_types && ... params)
 	{
-		(message<char_type>{ log, header } << ... << std::move(params));
+		std::basic_stringstream<char_type> buf;
+		(message<char_type>{ (buf << header) } << ... << std::move(params));
+		log(buf);
 	}
 
 	template <typename char_type>
@@ -74,28 +64,28 @@ namespace logger
 	}
 
 	template <>
-	void print(std::basic_ostream<wchar_t> & os, const std::uint8_t value)
+	void print(std::basic_ostream<wchar_t> & os, std::uint8_t value)
 	{
 		os << L"0123456789ABCDEF"[value / 16];
 		os << L"0123456789ABCDEF"[value % 16];
 	}
 
 	template <typename char_type>
-	void print(std::basic_ostream<char_type> & os, const std::uint16_t value)
+	void print(std::basic_ostream<char_type> & os, std::uint16_t value)
 	{
 		print(os, static_cast<std::uint8_t>(value >> 8));
 		print(os, static_cast<std::uint8_t>(value));
 	}
 
 	template <typename char_type>
-	void print(std::basic_ostream<char_type> & os, const std::uint32_t value)
+	void print(std::basic_ostream<char_type> & os, std::uint32_t value)
 	{
 		print(os, static_cast<std::uint16_t>(value >> 16));
 		print(os, static_cast<std::uint16_t>(value));
 	}
 
 	template <typename char_type>
-	void print(std::basic_ostream<char_type> & os, const std::uint64_t value)
+	void print(std::basic_ostream<char_type> & os, std::uint64_t value)
 	{
 		print(os, static_cast<std::uint32_t>(value >> 32));
 		print(os, static_cast<std::uint32_t>(value));
@@ -125,12 +115,12 @@ namespace logger
 	};
 
 	template <typename T>
-	using make_uint_t = typename make_uint<std::numeric_limits<T>::digits>::type;
+	using make_uint_t = typename make_uint<std::numeric_limits<std::make_unsigned_t<T>>::digits>::type;
 
 	template <typename T>
 	struct hex
 	{
-		make_uint_t<std::make_unsigned_t<T>> value;
+		make_uint_t<T> value;
 
 		hex(const T v) : value(v) {}
 	};
@@ -142,6 +132,8 @@ namespace logger
 		print(os, hex.value);
 		return os;
 	}
+
+	// TODO システムエラーのメッセージ出力を汎用化してみる
 }
 
 #if defined(_WIN32)
@@ -160,21 +152,21 @@ namespace logger
 			switch (level)
 			{
 			case 3:
-				g_Level3<wchar_t> = [](std::basic_stringstream<wchar_t> & msg) { msg << std::endl; ::OutputDebugStringW(msg.str().c_str()); };
+				g_level3<wchar_t> = [](std::basic_stringstream<wchar_t> & msg) { msg << std::endl; ::OutputDebugStringW(msg.str().c_str()); };
 			case 2:
-				g_Level2<wchar_t> = [](std::basic_stringstream<wchar_t> & msg) { msg << std::endl; ::OutputDebugStringW(msg.str().c_str()); };
+				g_level2<wchar_t> = [](std::basic_stringstream<wchar_t> & msg) { msg << std::endl; ::OutputDebugStringW(msg.str().c_str()); };
 			case 1:
-				g_Level1<wchar_t> = [](std::basic_stringstream<wchar_t> & msg) { msg << std::endl; ::OutputDebugStringW(msg.str().c_str()); };
+				g_level1<wchar_t> = [](std::basic_stringstream<wchar_t> & msg) { msg << std::endl; ::OutputDebugStringW(msg.str().c_str()); };
 			}
 #else
 			switch (level)
 			{
 			case 3:
-				g_Level3<char> = [](std::basic_stringstream<char> & msg) { msg << std::endl; ::OutputDebugStringA(msg.str().c_str()); };
+				g_level3<char> = [](std::basic_stringstream<char> & msg) { msg << std::endl; ::OutputDebugStringA(msg.str().c_str()); };
 			case 2:
-				g_Level2<char> = [](std::basic_stringstream<char> & msg) { msg << std::endl; ::OutputDebugStringA(msg.str().c_str()); };
+				g_level2<char> = [](std::basic_stringstream<char> & msg) { msg << std::endl; ::OutputDebugStringA(msg.str().c_str()); };
 			case 1:
-				g_Level1<char> = [](std::basic_stringstream<char> & msg) { msg << std::endl; ::OutputDebugStringA(msg.str().c_str()); };
+				g_level1<char> = [](std::basic_stringstream<char> & msg) { msg << std::endl; ::OutputDebugStringA(msg.str().c_str()); };
 			}
 #endif
 		}
@@ -192,11 +184,11 @@ namespace logger
 		switch (level)
 		{
 		case 3:
-			g_Level3<char> = [](std::basic_stringstream<char> & msg) { std::cout << msg.str() << std::endl; };
+			g_level3<char> = [](std::basic_stringstream<char> & msg) { std::cout << msg.str() << std::endl; };
 		case 2:
-			g_Level2<char> = [](std::basic_stringstream<char> & msg) { std::cout << msg.str() << std::endl; };
+			g_level2<char> = [](std::basic_stringstream<char> & msg) { std::cout << msg.str() << std::endl; };
 		case 1:
-			g_Level1<char> = [](std::basic_stringstream<char> & msg) { std::cout << msg.str() << std::endl; };
+			g_level1<char> = [](std::basic_stringstream<char> & msg) { std::cout << msg.str() << std::endl; };
 		}
 	}
 }
