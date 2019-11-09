@@ -4,7 +4,10 @@
 #error
 #endif
 
+#include <cstring>
+#include <cwchar>
 #include <sstream>
+#include <system_error>
 
 #define LOGGER_MACRO_NUMBER2TEXT(n)	#n
 #define LOGGER_MACRO_HEADER(file, line)	file "(" LOGGER_MACRO_NUMBER2TEXT(line) "):"
@@ -133,7 +136,64 @@ namespace logger
 		return os;
 	}
 
-	// TODO システムエラーのメッセージ出力を汎用化してみる
+	std::basic_ostream<wchar_t> & operator<<(std::basic_ostream<wchar_t> & os, const char * ptr)
+	{
+		std::mbstate_t state{};
+		wchar_t wc{};
+
+		std::size_t ret, len = std::strlen(ptr);
+
+		while (static_cast<int>(ret = std::mbrtowc(&wc, ptr, len, &state)) > 0)
+		{
+			ptr += ret, len -= ret;
+			os << wc;
+		}
+
+		return os;
+	}
+
+	struct what
+	{
+		int value;
+
+		what(int v) : value(v) {}
+	};
+
+	template <typename char_type>
+	std::basic_ostream<char_type> & operator<<(std::basic_ostream<char_type> & os, const what & what)
+	{
+		if (what.value >= 0)
+			os << what.value << ' ';
+		else
+			os << hex(what.value) << ' ';
+
+		return os << std::system_error(what.value, std::system_category()).what();
+	}
+#if 0
+	template <>
+	std::basic_ostream<wchar_t> & operator<<(std::basic_ostream<wchar_t> & os, const what & what)
+	{
+		if (what.value >= 0)
+			os << what.value << L' ';
+		else
+			os << hex(what.value) << L' ';
+
+		std::system_error syserr(what.value, std::system_category());
+		std::mbstate_t state{};
+		wchar_t wc{};
+
+		const char * ptr = syserr.what();
+		std::size_t ret, len = std::strlen(ptr);
+
+		while (static_cast<int>(ret = std::mbrtowc(&wc, ptr, len, &state)) > 0)
+		{
+			ptr += ret, len -= ret;
+			os << wc;
+		}
+
+		return os;
+	}
+#endif
 }
 
 #if defined(_WIN32)
